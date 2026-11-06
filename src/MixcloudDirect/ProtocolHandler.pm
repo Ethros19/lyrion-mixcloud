@@ -269,7 +269,7 @@ sub getMetadataFor {
 	};
 	$meta->{bitrate} = int($data->{bitrate} / 1000) . 'kbps' if $data && $data->{bitrate};
 
-	return $meta unless $data && $show->{tracks} && @{ $show->{tracks} };
+	return $meta unless $data && $show->{tracks} && @{ $show->{tracks} } && !$client->isStopped;
 
 	# the tracklist has start times: show the track playing now
 	my $elapsed = $client->controller->playingSongElapsed || 0;
@@ -288,7 +288,43 @@ sub getMetadataFor {
 		Slim::Control::Request::notifyFromArray($client, ['newmetadata']);
 	}
 
+	_scheduleTrackChange($client, $url, $show->{tracks}, $elapsed);
+
 	return $meta;
+}
+
+# Clients that only listen for pushed updates (Material) never ask for
+# metadata again by themselves, so wake them when the next track starts.
+# Capped so pauses and seeks get re-checked.
+use constant MAX_TRACK_WAIT => 60;
+
+sub _scheduleTrackChange {
+	my ($client, $url, $tracks, $elapsed) = @_;
+
+	Slim::Utils::Timers::killTimers($client, \&_trackChanged);
+
+	my ($next) = grep { $_->{start} > $elapsed } @$tracks;
+	return unless $next;
+
+	my $wait = $next->{start} - $elapsed;
+	$wait = MAX_TRACK_WAIT if $wait > MAX_TRACK_WAIT;
+
+	Slim::Utils::Timers::setTimer($client, Time::HiRes::time() + $wait + 0.5, \&_trackChanged, $url);
+}
+
+sub _trackChanged {
+	my ($client, $url) = @_;
+
+	my $song = $client->playingSong;
+	return unless $song && $song->currentTrack && $song->currentTrack->url eq $url;
+
+	# getMetadataFor (run by the status query this triggers) reschedules
+	if ($client->isPlaying) {
+		__PACKAGE__->getMetadataFor($client, $url);
+	}
+	else {
+		Slim::Utils::Timers::setTimer($client, Time::HiRes::time() + MAX_TRACK_WAIT, \&_trackChanged, $url);
+	}
 }
 
 1;

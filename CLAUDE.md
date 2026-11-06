@@ -24,6 +24,7 @@ Sibling of ~/Projects/KEXP (same conventions).
 - REST list endpoints are public: `/<user>/{cloudcasts,favorites,listens,following,playlists}/`, `/discover/<tag>/{popular,latest}/`, `/categories/`, `/search/?type=cloudcast|user|tag`. Paging via `paging.next`. `is_exclusive` = Mixcloud Select (unplayable; hidden unless the pref is on).
 
 ## LMS gotchas (from KEXP, still apply)
+- Material only refreshes now-playing when the server pushes (`newmetadata`); it never polls, so `getMetadataFor` alone goes stale (LyrionJS polls and looked fine). `_scheduleTrackChange` sets a per-client timer for the next tracklist boundary (capped at 60 s) that re-runs `getMetadataFor`, which notifies on change.
 - Playable rows use the full favourite title as `name` (LyrionJS saves favourites under `name`) with `line1`/`line2` for display.
 - Don't give `link` items a `play` attribute (Material ⋮ menu loses Play).
 - Most CLI menu queries hang without a connected player: start the test player.
