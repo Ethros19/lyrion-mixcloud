@@ -11,13 +11,21 @@ white slivers on dark themes. PNG rendering uses macOS QuickLook.
 
 LMS and browsers cache resized icons by path, so bump NAME when the art
 changes (and update install.xml).
+
+Menu icons: MTL_icon_<name>.png for each Material Design icon in MENU_ICONS.
+Material Skin sees "MTL_icon_<name>" in the path and draws its own icon of
+that name (themed); other skins show the PNG: the same glyph, white on the
+logo's gradient tile. Glyphs are Google's Material Icons (Apache-2.0),
+fetched from the npm CDN when this script runs.
 """
 
 import math
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import urllib.request
 
 NAME = "mixcloud-direct-2"
 OUT = os.path.join(os.path.dirname(__file__), "..", "src", "MixcloudDirect",
@@ -94,19 +102,46 @@ GLYPH = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="2
 """
 
 
+MENU_ICONS = ["account_circle", "search", "library_music", "mic", "link",
+              "queue_music", "favorite", "history", "playlist_play", "people",
+              "trending_up", "new_releases", "more_horiz"]
+GLYPH_URL = "https://cdn.jsdelivr.net/npm/@material-design-icons/svg@0.14.13/filled/{}.svg"
+
+
+def menu_tile(name):
+    with urllib.request.urlopen(GLYPH_URL.format(name), timeout=30) as r:
+        svg = r.read().decode()
+    paths = "".join(re.findall(r"<path[^>]*/>", svg))
+    # the logo's background, with the 24-unit glyph scaled to 264 px, centred
+    background = TILE.split("<path")[0].split(">", 1)[1]
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">'
+            f'{background}<g fill="#ffffff" transform="translate(124 124) scale(11)">{paths}</g></svg>')
+
+
+def render(svgs):
+    """{filename.png: svg text} -> PNGs in OUT, via QuickLook"""
+    tmp = tempfile.mkdtemp()
+    sources = []
+    for png, svg in svgs.items():
+        src = os.path.join(tmp, png[:-4] + ".svg")
+        with open(src, "w") as fh:
+            fh.write(svg)
+        sources.append(src)
+    subprocess.run(["qlmanage", "-t", "-s", "512", "-o", tmp] + sources,
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for png in svgs:
+        shutil.copy(os.path.join(tmp, png[:-4] + ".svg.png"), os.path.join(OUT, png))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, NAME + ".svg"), "w") as fh:
         fh.write(GLYPH)
 
-    tmp = tempfile.mkdtemp()
-    src = os.path.join(tmp, "tile.svg")
-    with open(src, "w") as fh:
-        fh.write(TILE)
-    subprocess.run(["qlmanage", "-t", "-s", "512", "-o", tmp, src],
-                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    shutil.copy(os.path.join(tmp, "tile.svg.png"), os.path.join(OUT, NAME + "_svg.png"))
-    print("wrote", NAME + ".svg", NAME + "_svg.png")
+    svgs = {NAME + "_svg.png": TILE}
+    svgs.update({f"MTL_icon_{n}.png": menu_tile(n) for n in MENU_ICONS})
+    render(svgs)
+    print("wrote", NAME + ".svg", ", ".join(svgs))
 
 
 if __name__ == "__main__":

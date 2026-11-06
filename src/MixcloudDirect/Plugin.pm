@@ -51,6 +51,12 @@ sub getDisplayName { 'PLUGIN_MIXCLOUDDIRECT_MENU' }
 
 sub icon { __PACKAGE__->_pluginDataFor('icon') }
 
+# Menu icons: Material Skin sees "MTL_icon_<name>" and draws its own
+# (themed) icon of that name; other skins show the PNG (scripts/icon.py).
+# Distinct icons also matter in Material: it hides a list's images when
+# they're all the same, and never shows an icon on a search field.
+sub _icon { 'plugins/MixcloudDirect/html/images/MTL_icon_' . $_[0] . '.png' }
+
 sub handleFeed {
 	my ($client, $cb) = @_;
 
@@ -64,55 +70,68 @@ sub handleFeed {
 				type  => 'link',
 				url   => \&userMenu,
 				passthrough => [{ user => $username, mine => 1 }],
-				image => icon(),
+				image => _icon('account_circle'),
 			}
 			: {
 				name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SET_USERNAME'),
 				type  => 'search',
 				url   => \&setUsername,
-				image => icon(),
+				image => _icon('account_circle'),
 			}
 		),
 		{
-			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_SHOWS'),
-			type  => 'search',
-			url   => \&search,
-			passthrough => [{ type => 'cloudcast' }],
-			image => icon(),
-		},
-		{
-			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_USERS'),
-			type  => 'search',
-			url   => \&search,
-			passthrough => [{ type => 'user' }],
-			image => icon(),
-		},
-		{
-			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_TAGS'),
-			type  => 'search',
-			url   => \&search,
-			passthrough => [{ type => 'tag' }],
-			image => icon(),
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH'),
+			type  => 'link',
+			url   => \&searchMenu,
+			image => _icon('search'),
 		},
 		{
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_MUSIC_CATEGORIES'),
 			type  => 'link',
 			url   => \&categories,
 			passthrough => [{ format => 'music' }],
-			image => icon(),
+			image => _icon('library_music'),
 		},
 		{
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_TALK_CATEGORIES'),
 			type  => 'link',
 			url   => \&categories,
 			passthrough => [{ format => 'talk' }],
-			image => icon(),
+			image => _icon('mic'),
+		},
+	] });
+}
+
+sub searchMenu {
+	my ($client, $cb) = @_;
+
+	$cb->({ items => [
+		{
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_SHOWS'),
+			type  => 'search',
+			url   => \&search,
+			passthrough => [{ type => 'cloudcast' }],
+			image => _icon('search'),
+		},
+		{
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_USERS'),
+			type  => 'search',
+			url   => \&search,
+			passthrough => [{ type => 'user' }],
+			image => _icon('search'),
+		},
+		{
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_TAGS'),
+			type  => 'search',
+			url   => \&search,
+			passthrough => [{ type => 'tag' }],
+			image => _icon('search'),
 		},
 		{
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_OPEN_URL'),
 			type  => 'search',
 			url   => \&openUrl,
-			image => icon(),
+			image => _icon('link'),
 		},
 	] });
 }
@@ -182,6 +201,7 @@ sub showList {
 			push @items, {
 				name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_MORE'),
 				type => 'link',
+				image => _icon('more_horiz'),
 				url  => \&showList,
 				passthrough => [{ path => $next }],
 			} if @{ $data->{data} };
@@ -218,24 +238,28 @@ sub userMenu {
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_UPLOADS'),
 			type => 'link',
+			image => _icon('queue_music'),
 			url  => \&showList,
 			passthrough => [{ path => "/$u/cloudcasts/" }],
 		},
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_FAVORITES'),
 			type => 'link',
+			image => _icon('favorite'),
 			url  => \&showList,
 			passthrough => [{ path => "/$u/favorites/", ttl => 120 }],
 		},
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_PLAYLISTS'),
 			type => 'link',
+			image => _icon('playlist_play'),
 			url  => \&playlists,
 			passthrough => [{ user => $user }],
 		},
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_FOLLOWING'),
 			type => 'link',
+			image => _icon('people'),
 			url  => \&userList,
 			passthrough => [{ path => "/$u/following/" }],
 		},
@@ -245,6 +269,7 @@ sub userMenu {
 		splice @items, 2, 0, {
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_LISTENS'),
 			type => 'link',
+			image => _icon('history'),
 			url  => \&showList,
 			passthrough => [{ path => "/$u/listens/", ttl => 60 }],
 		};
@@ -269,6 +294,7 @@ sub userList {
 			push @items, {
 				name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_MORE'),
 				type => 'link',
+				image => _icon('more_horiz'),
 				url  => \&userList,
 				passthrough => [{ path => $next }],
 			} if @{ $data->{data} };
@@ -376,12 +402,14 @@ sub discover {
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_POPULAR'),
 			type => 'link',
+			image => _icon('trending_up'),
 			url  => \&showList,
 			passthrough => [{ path => "/discover/$slug/popular/", ttl => 1800 }],
 		},
 		{
 			name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_LATEST'),
 			type => 'link',
+			image => _icon('new_releases'),
 			url  => \&showList,
 			passthrough => [{ path => "/discover/$slug/latest/", ttl => 300 }],
 		},

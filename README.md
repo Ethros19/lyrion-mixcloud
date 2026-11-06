@@ -6,9 +6,8 @@ including 9.0/9.1 where the official Mixcloud plugin can't log in.
 
 - **My Mixcloud**: your uploads, favourites, listening history, playlists and
   the people you follow. Enter your username once; no password or login.
-- **Search** shows, DJs & stations, and genres
+- **Search** shows, DJs & stations, and genres, or paste a Mixcloud link
 - **Music and Talk categories**, each with Popular and Latest
-- **Open a Mixcloud link**: paste a show or profile URL
 - **192 kbps AAC** where Mixcloud offers it (64 kbps for older uploads), with
   accurate seeking
 - **Now playing follows the tracklist** when the show has one
@@ -54,4 +53,5 @@ stream itself in Perl, and sends HTTP/1.1 requests with its own User-Agent.
 
 ## License
 
-GPL-2.0, like Lyrion itself.
+GPL-2.0, like Lyrion itself. Menu icons use glyphs from Google's
+[Material Icons](https://github.com/google/material-design-icons) (Apache-2.0).
