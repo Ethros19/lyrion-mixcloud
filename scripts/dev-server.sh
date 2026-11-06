@@ -3,6 +3,7 @@
 # HTTP client mishandles Mixcloud's "Content-Encoding: identity") in Docker
 # with this plugin mounted live. Web UI: http://localhost:9100
 # Restart the container to reload Perl code: docker restart mixcloud-lms
+# Other versions: LMS_VERSION=9.2.0, or LMS_IMAGE=lmscommunity/logitechmediaserver LMS_VERSION=8.5.2
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .dev/config
@@ -12,5 +13,5 @@ docker run -d --name mixcloud-lms \
   -v "$PWD/.dev/config:/config" \
   -v "$PWD/src/MixcloudDirect:/config/cache/Plugins/MixcloudDirect:ro" \
   -e EXTRA_ARGS="--debug plugin.mixclouddirect=INFO" \
-  "lmscommunity/lyrionmusicserver:${LMS_VERSION:-9.0.0}"
+  "${LMS_IMAGE:-lmscommunity/lyrionmusicserver}:${LMS_VERSION:-9.0.0}"
 echo "Lyrion starting on http://localhost:9100 (logs: docker logs -f mixcloud-lms)"

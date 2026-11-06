@@ -27,7 +27,7 @@ use constant PAGE => 50;
 sub initPlugin {
 	my $class = shift;
 
-	$prefs->init({ username => '', quality => 'high', showExclusive => 0 });
+	$prefs->init({ username => '', quality => 'high', showExclusive => 0, follows => {} });
 
 	Slim::Player::ProtocolHandlers->registerHandler(
 		mcdirect => 'Plugins::MixcloudDirect::ProtocolHandler'
@@ -79,6 +79,12 @@ sub handleFeed {
 				image => _icon('account_circle'),
 			}
 		),
+		{
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_FOLLOWED_MENU'),
+			type  => 'link',
+			url   => \&followedMenu,
+			image => _icon('star'),
+		},
 		{
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH'),
 			type  => 'link',
@@ -217,14 +223,15 @@ sub showList {
 sub _userItem {
 	my ($client, $raw) = @_;
 	my $user = $raw->{username} || return;
+	my $image = pictureUrl($raw->{pictures});
 
 	return {
 		name  => $raw->{name} || $user,
 		line2 => $raw->{name} && $raw->{name} ne $user ? $user : undef,
 		type  => 'link',
 		url   => \&userMenu,
-		passthrough => [{ user => $user }],
-		image => pictureUrl($raw->{pictures}) || icon(),
+		passthrough => [{ user => $user, name => $raw->{name}, image => $image }],
+		image => $image || icon(),
 	};
 }
 
@@ -274,8 +281,111 @@ sub userMenu {
 			passthrough => [{ path => "/$u/listens/", ttl => 60 }],
 		};
 	}
+	else {
+		# LMS addresses menu entries by position and rebuilds this page on
+		# every request, while Material shows its old copy when you go back.
+		# So "Follow" sits first and "Unfollow" last: a tap on a stale entry
+		# lands on Shows or Following, never on the opposite action.
+		my $following = _follows()->{$user};
+		my $entry = {
+			name => cstring($client, $following ? 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOW' : 'PLUGIN_MIXCLOUDDIRECT_FOLLOW'),
+			type => 'link',
+			image => _icon($following ? 'person_remove' : 'person_add'),
+			url  => \&setFollow,
+			passthrough => [{ user => $user, name => $pass->{name}, image => $pass->{image}, follow => !$following }],
+			# controllers that honour it redraw this page afterwards
+			nextWindow => 'refresh',
+		};
+		$following ? push(@items, $entry) : unshift(@items, $entry);
+	}
 
 	$cb->({ items => \@items });
+}
+
+# -- follows (kept in Lyrion, not on Mixcloud) -----------------------------
+
+sub _follows { $prefs->get('follows') || {} }
+
+# Explicit follow/unfollow (see userMenu for why the entry moves)
+sub setFollow {
+	my ($client, $cb, $args, $pass) = @_;
+
+	my %follows = %{ _follows() };
+	my $user = $pass->{user};
+	my $name = $pass->{name} || ($follows{$user} && $follows{$user}{name}) || $user;
+
+	if ($pass->{follow}) {
+		$follows{$user} ||= { name => $name, image => $pass->{image}, added => time() };
+	}
+	else {
+		delete $follows{$user};
+	}
+
+	$prefs->set(follows => \%follows);
+	main::INFOLOG && $log->info(($pass->{follow} ? 'follow' : 'unfollow') . ": $user");
+
+	my $token = $pass->{follow} ? 'PLUGIN_MIXCLOUDDIRECT_FOLLOWED' : 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOWED';
+	$cb->({ items => [{ name => sprintf(cstring($client, $token), $name), type => 'text' }] });
+}
+
+sub followedMenu {
+	my ($client, $cb) = @_;
+
+	my $follows = _follows();
+	my @users = sort { lc($follows->{$a}{name} || $a) cmp lc($follows->{$b}{name} || $b) } keys %$follows;
+
+	return $cb->({ items => [{ name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NO_FOLLOWS'), type => 'text' }] }) unless @users;
+
+	$cb->({ items => [
+		{
+			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NEW_FROM_FOLLOWED'),
+			type  => 'link',
+			url   => \&followedFeed,
+			image => _icon('new_releases'),
+		},
+		map {
+			my $f = $follows->{$_};
+			{
+				name  => $f->{name} || $_,
+				line2 => $f->{name} && $f->{name} ne $_ ? $_ : undef,
+				type  => 'link',
+				url   => \&userMenu,
+				passthrough => [{ user => $_, name => $f->{name}, image => $f->{image} }],
+				image => $f->{image} || icon(),
+			}
+		} @users
+	] });
+}
+
+use constant FEED_PER_USER => 10;
+use constant FEED_MAX      => 100;
+
+# Latest uploads from everyone followed, newest first
+sub followedFeed {
+	my ($client, $cb) = @_;
+
+	my @users = keys %{ _follows() };
+	return _empty($client, $cb) unless @users;
+
+	my $pending = @users;
+	my @shows;
+
+	for my $user (@users) {
+		Plugins::MixcloudDirect::API->get('/' . uri_escape_utf8($user) . '/cloudcasts/?limit=' . FEED_PER_USER, sub {
+			my $data = shift;
+			push @shows, grep { $_ } map { Plugins::MixcloudDirect::API->normalize($_) } @{ $data && $data->{data} || [] };
+			return if --$pending;
+
+			my $showExclusive = $prefs->get('showExclusive');
+			my @items = map  { _showItem($client, $_) }
+			            sort { ($b->{created} || '') cmp ($a->{created} || '') }
+			            grep { $showExclusive || !$_->{exclusive} } @shows;
+			splice @items, FEED_MAX if @items > FEED_MAX;
+
+			return _empty($client, $cb) unless @items;
+			$cb->({ items => \@items });
+		}, 900);
+	}
 }
 
 sub userList {
@@ -451,7 +561,7 @@ sub openUrl {
 		return Plugins::MixcloudDirect::API->get('/' . uri_escape_utf8($user) . '/', sub {
 			my $data = shift;
 			return _error($client, $cb, 'PLUGIN_MIXCLOUDDIRECT_NOT_FOUND') unless $data && $data->{username};
-			userMenu($client, $cb, $args, { user => $data->{username} });
+			userMenu($client, $cb, $args, { user => $data->{username}, name => $data->{name}, image => pictureUrl($data->{pictures}) });
 		});
 	}
 

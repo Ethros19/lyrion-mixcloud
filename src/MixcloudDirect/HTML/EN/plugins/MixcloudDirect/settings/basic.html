@@ -4,6 +4,11 @@
 		<strong>[% mcdVersion | html %]</strong>
 	[% END %]
 
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_READ_ONLY" desc="" %]
+		[% "PLUGIN_MIXCLOUDDIRECT_READ_ONLY_TEXT" | string %]
+		<br><a href="https://www.mixcloud.com/" target="_blank" rel="noopener">[% "PLUGIN_MIXCLOUDDIRECT_MANAGE_LINK" | string %]</a>
+	[% END %]
+
 	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_USERNAME" desc="PLUGIN_MIXCLOUDDIRECT_USERNAME_DESC" %]
 		<input type="text" class="stdedit" name="pref_username" value="[% prefs.pref_username | html %]" size="30" placeholder="e.g. NTSRadio">
 	[% END %]
@@ -20,8 +25,21 @@
 		<label for="pref_showExclusive">[% "PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_LABEL" | string %]</label>
 	[% END %]
 
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_FOLLOWED_MENU" desc="" %]
+		[% "PLUGIN_MIXCLOUDDIRECT_FOLLOWS_COUNT" | string %]: [% mcdFollows | html %]
+	[% END %]
+
 	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT" desc="" %]
 		[% "PLUGIN_MIXCLOUDDIRECT_ABOUT" | string %]
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_PROJECT" desc="" %]
+		<a href="[% mcdProject | html %]" target="_blank" rel="noopener">[% mcdProject | html %]</a>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_HELP" desc="" %]
+		[% "PLUGIN_MIXCLOUDDIRECT_HELP_TEXT" | string %]
+		<a href="[% mcdIssues | html %]" target="_blank" rel="noopener">[% "PLUGIN_MIXCLOUDDIRECT_HELP_LINK" | string %]</a>
 	[% END %]
 
 [% PROCESS settings/footer.html %]

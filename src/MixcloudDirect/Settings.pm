@@ -38,6 +38,9 @@ sub handler {
 sub beforeRender {
 	my ($class, $params) = @_;
 	$params->{mcdVersion} = Plugins::MixcloudDirect::Plugin->_pluginDataFor('version');
+	$params->{mcdFollows} = scalar keys %{ $prefs->get('follows') || {} };
+	$params->{mcdProject} = 'https://github.com/Ethros19/lyrion-mixcloud';
+	$params->{mcdIssues}  = 'https://github.com/Ethros19/lyrion-mixcloud/issues';
 }
 
 1;

@@ -5,10 +5,34 @@ PLUGIN_MIXCLOUDDIRECT_MENU
 	EN	Mixcloud
 
 PLUGIN_MIXCLOUDDIRECT_DESC
-	EN	Browse and play Mixcloud shows: search, categories, and any user's uploads, favourites, playlists and follows. Plays the 192k stream with no helper application, and works on Lyrion 8 and 9.
+	EN	Mixcloud for Lyrion servers that can't run the official plugin. Built for Lyrion 9.0 servers that can't be upgraded, and tested on 8.5, 9.0, 9.1 and 9.2; no helper application needed. Read-only: browse, search and play, and see your public profile by username. Manage your Mixcloud account on mixcloud.com.
 
 PLUGIN_MIXCLOUDDIRECT_ABOUT
-	EN	Plays Mixcloud's own streams directly (no yt-dlp or other helper), so it runs on any Lyrion server. Instead of logging in, it reads your public profile by username: uploads, favourites, listening history, playlists and the people you follow.
+	EN	Built for Lyrion servers that can't be upgraded to 9.2, where the official Mixcloud plugin can neither log in nor play. This plugin plays Mixcloud's own streams directly, with no yt-dlp or other helper, so it runs on older servers and modest hardware.
+
+PLUGIN_MIXCLOUDDIRECT_FOLLOWS_COUNT
+	EN	DJs & stations you follow in Lyrion
+
+PLUGIN_MIXCLOUDDIRECT_PROJECT
+	EN	Project
+
+PLUGIN_MIXCLOUDDIRECT_HELP
+	EN	Help & feedback
+
+PLUGIN_MIXCLOUDDIRECT_HELP_TEXT
+	EN	Something not working, or have an idea?
+
+PLUGIN_MIXCLOUDDIRECT_HELP_LINK
+	EN	Open an issue on GitHub
+
+PLUGIN_MIXCLOUDDIRECT_READ_ONLY
+	EN	Read-only
+
+PLUGIN_MIXCLOUDDIRECT_READ_ONLY_TEXT
+	EN	This plugin never logs in to Mixcloud and can't change your account. It reads your public profile by username. To follow, favourite, upload or change anything on Mixcloud, use mixcloud.com or the Mixcloud app; changes show up here within about 10 minutes. "Follow in Lyrion" is separate: it's kept on this Lyrion server only and isn't sent to Mixcloud.
+
+PLUGIN_MIXCLOUDDIRECT_MANAGE_LINK
+	EN	Manage your account on mixcloud.com
 
 PLUGIN_MIXCLOUDDIRECT_VERSION
 	EN	Version
@@ -17,7 +41,7 @@ PLUGIN_MIXCLOUDDIRECT_USERNAME
 	EN	Mixcloud username
 
 PLUGIN_MIXCLOUDDIRECT_USERNAME_DESC
-	EN	Your Mixcloud username (the part after mixcloud.com/ in your profile link) or the profile link itself. It fills "My Mixcloud". No password needed: this reads your public profile.
+	EN	Your Mixcloud username (the part after mixcloud.com/ in your profile link) or the profile link itself. It fills "My Mixcloud" from your public profile. No password: this plugin is read-only.
 
 PLUGIN_MIXCLOUDDIRECT_QUALITY
 	EN	Stream quality
@@ -45,6 +69,27 @@ PLUGIN_MIXCLOUDDIRECT_MY_MIXCLOUD
 
 PLUGIN_MIXCLOUDDIRECT_SET_USERNAME
 	EN	My Mixcloud: enter your username
+
+PLUGIN_MIXCLOUDDIRECT_FOLLOWED_MENU
+	EN	Followed
+
+PLUGIN_MIXCLOUDDIRECT_NEW_FROM_FOLLOWED
+	EN	New from People You Follow
+
+PLUGIN_MIXCLOUDDIRECT_FOLLOW
+	EN	Follow in Lyrion
+
+PLUGIN_MIXCLOUDDIRECT_UNFOLLOW
+	EN	Unfollow
+
+PLUGIN_MIXCLOUDDIRECT_FOLLOWED
+	EN	Following %s. Their new shows appear under Followed.
+
+PLUGIN_MIXCLOUDDIRECT_UNFOLLOWED
+	EN	Stopped following %s.
+
+PLUGIN_MIXCLOUDDIRECT_NO_FOLLOWS
+	EN	You're not following anyone yet. Open a DJ or station (Search › Search DJs & Stations, or from My Mixcloud) and choose Follow in Lyrion.
 
 PLUGIN_MIXCLOUDDIRECT_SEARCH
 	EN	Search

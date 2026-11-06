@@ -104,7 +104,8 @@ GLYPH = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="2
 
 MENU_ICONS = ["account_circle", "search", "library_music", "mic", "link",
               "queue_music", "favorite", "history", "playlist_play", "people",
-              "trending_up", "new_releases", "more_horiz"]
+              "trending_up", "new_releases", "more_horiz", "star",
+              "person_add", "person_remove"]
 GLYPH_URL = "https://cdn.jsdelivr.net/npm/@material-design-icons/svg@0.14.13/filled/{}.svg"
 
 

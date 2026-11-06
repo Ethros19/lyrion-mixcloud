@@ -25,7 +25,7 @@ cat > "${REPO_XML:-repo.xml}" <<XML
 	<plugins>
 		<plugin name="MixcloudDirect" version="$version" minTarget="8.0" maxTarget="*">
 			<title lang="EN">Mixcloud Direct</title>
-			<desc lang="EN">Browse and play Mixcloud shows with no helper application: search, categories, and any user's uploads, favourites, playlists and follows. Works on Lyrion 8 and 9.</desc>
+			<desc lang="EN">Mixcloud for Lyrion servers that can't run the official plugin (built for 9.0 servers that can't upgrade; tested on 8.5, 9.0, 9.1 and 9.2). No login, no yt-dlp. Read-only: browse, search and play; manage your account on mixcloud.com.</desc>
 			<creator>Ethan Rosch</creator>
 			<category>musicservices</category>
 			<link>https://github.com/$REPO</link>
