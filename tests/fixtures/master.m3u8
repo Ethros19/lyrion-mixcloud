@@ -1,0 +1,8 @@
+#EXTM3U
+#EXT-X-VERSION:6
+
+#EXT-X-STREAM-INF:BANDWIDTH=64003,CODECS="mp4a.40.2",AVERAGE-BANDWIDTH=64003
+https://aod.mixcloud.com/secure/hls/0/a/5/1/bcfa-839f-4f80-b374-988f7e7ff88a.m4a/streamindex-a1.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=192001,CODECS="mp4a.40.2",AVERAGE-BANDWIDTH=192001
+https://aod.mixcloud.com/secure/hls/0/a/5/1/bcfa-839f-4f80-b374-988f7e7ff88a-192K.m4a/streamindex-a1.m3u8
+

@@ -1,0 +1,27 @@
+[% PROCESS settings/header.html %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_VERSION" desc="" %]
+		<strong>[% mcdVersion | html %]</strong>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_USERNAME" desc="PLUGIN_MIXCLOUDDIRECT_USERNAME_DESC" %]
+		<input type="text" class="stdedit" name="pref_username" value="[% prefs.pref_username | html %]" size="30" placeholder="e.g. NTSRadio">
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_QUALITY" desc="PLUGIN_MIXCLOUDDIRECT_QUALITY_DESC" %]
+		<select name="pref_quality" class="stdedit">
+			<option value="high" [% IF prefs.pref_quality != 'low' %]selected[% END %]>[% "PLUGIN_MIXCLOUDDIRECT_QUALITY_HIGH" | string %]</option>
+			<option value="low" [% IF prefs.pref_quality == 'low' %]selected[% END %]>[% "PLUGIN_MIXCLOUDDIRECT_QUALITY_LOW" | string %]</option>
+		</select>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_TITLE" desc="PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_DESC" %]
+		<input type="checkbox" name="pref_showExclusive" id="pref_showExclusive" value="1" [% IF prefs.pref_showExclusive %]checked[% END %]>
+		<label for="pref_showExclusive">[% "PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_LABEL" | string %]</label>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_MIXCLOUDDIRECT" desc="" %]
+		[% "PLUGIN_MIXCLOUDDIRECT_ABOUT" | string %]
+	[% END %]
+
+[% PROCESS settings/footer.html %]

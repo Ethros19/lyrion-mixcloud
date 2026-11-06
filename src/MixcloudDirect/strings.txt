@@ -1,0 +1,116 @@
+PLUGIN_MIXCLOUDDIRECT
+	EN	Mixcloud Direct
+
+PLUGIN_MIXCLOUDDIRECT_MENU
+	EN	Mixcloud
+
+PLUGIN_MIXCLOUDDIRECT_DESC
+	EN	Browse and play Mixcloud shows: search, categories, and any user's uploads, favourites, playlists and follows. Plays the 192k stream with no helper application, and works on Lyrion 8 and 9.
+
+PLUGIN_MIXCLOUDDIRECT_ABOUT
+	EN	Plays Mixcloud's own streams directly (no yt-dlp or other helper), so it runs on any Lyrion server. Instead of logging in, it reads your public profile by username: uploads, favourites, listening history, playlists and the people you follow.
+
+PLUGIN_MIXCLOUDDIRECT_VERSION
+	EN	Version
+
+PLUGIN_MIXCLOUDDIRECT_USERNAME
+	EN	Mixcloud username
+
+PLUGIN_MIXCLOUDDIRECT_USERNAME_DESC
+	EN	Your Mixcloud username (the part after mixcloud.com/ in your profile link) or the profile link itself. It fills "My Mixcloud". No password needed: this reads your public profile.
+
+PLUGIN_MIXCLOUDDIRECT_QUALITY
+	EN	Stream quality
+
+PLUGIN_MIXCLOUDDIRECT_QUALITY_DESC
+	EN	High is 192 kbps AAC; low is 64 kbps, for slow connections.
+
+PLUGIN_MIXCLOUDDIRECT_QUALITY_HIGH
+	EN	High (192 kbps)
+
+PLUGIN_MIXCLOUDDIRECT_QUALITY_LOW
+	EN	Low (64 kbps)
+
+PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_TITLE
+	EN	Select (subscriber-only) shows
+
+PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_DESC
+	EN	Shows only Mixcloud Select subscribers can play are hidden, since they can't be played here.
+
+PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE_LABEL
+	EN	List them anyway
+
+PLUGIN_MIXCLOUDDIRECT_MY_MIXCLOUD
+	EN	My Mixcloud
+
+PLUGIN_MIXCLOUDDIRECT_SET_USERNAME
+	EN	My Mixcloud: enter your username
+
+PLUGIN_MIXCLOUDDIRECT_SEARCH_SHOWS
+	EN	Search Shows
+
+PLUGIN_MIXCLOUDDIRECT_SEARCH_USERS
+	EN	Search DJs & Stations
+
+PLUGIN_MIXCLOUDDIRECT_SEARCH_TAGS
+	EN	Search Genres
+
+PLUGIN_MIXCLOUDDIRECT_MUSIC_CATEGORIES
+	EN	Music Categories
+
+PLUGIN_MIXCLOUDDIRECT_TALK_CATEGORIES
+	EN	Talk Categories
+
+PLUGIN_MIXCLOUDDIRECT_OPEN_URL
+	EN	Open a Mixcloud Link
+
+PLUGIN_MIXCLOUDDIRECT_UPLOADS
+	EN	Shows
+
+PLUGIN_MIXCLOUDDIRECT_FAVORITES
+	EN	Favourites
+
+PLUGIN_MIXCLOUDDIRECT_LISTENS
+	EN	Listening History
+
+PLUGIN_MIXCLOUDDIRECT_PLAYLISTS
+	EN	Playlists
+
+PLUGIN_MIXCLOUDDIRECT_FOLLOWING
+	EN	Following
+
+PLUGIN_MIXCLOUDDIRECT_POPULAR
+	EN	Popular
+
+PLUGIN_MIXCLOUDDIRECT_LATEST
+	EN	Latest
+
+PLUGIN_MIXCLOUDDIRECT_MORE
+	EN	More…
+
+PLUGIN_MIXCLOUDDIRECT_EMPTY
+	EN	Nothing here yet.
+
+PLUGIN_MIXCLOUDDIRECT_ERROR
+	EN	Couldn't reach Mixcloud. Try again in a bit.
+
+PLUGIN_MIXCLOUDDIRECT_NOT_FOUND
+	EN	Mixcloud doesn't have that show or user.
+
+PLUGIN_MIXCLOUDDIRECT_NO_SUCH_USER
+	EN	No Mixcloud user by that name.
+
+PLUGIN_MIXCLOUDDIRECT_NO_STREAM
+	EN	Mixcloud didn't offer a stream for this show.
+
+PLUGIN_MIXCLOUDDIRECT_EXCLUSIVE
+	EN	This is a Mixcloud Select show, playable only by subscribers.
+
+PLUGIN_MIXCLOUDDIRECT_GEO_BLOCKED
+	EN	This show isn't available in your country (music licensing).
+
+PLUGIN_MIXCLOUDDIRECT_REPEAT_PLAY
+	EN	Mixcloud's play limit for this show has been reached. Try again later.
+
+PLUGIN_MIXCLOUDDIRECT_RESTRICTED
+	EN	Mixcloud has restricted this show.
