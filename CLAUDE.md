@@ -13,6 +13,7 @@ Sibling of ~/Projects/KEXP (same conventions).
   - `Settings.pm` + `HTML/EN/plugins/MixcloudDirect/settings/basic.html`: username, quality, show Select shows
 - `tests/`: `prove tests/` (only Util is testable outside LMS; fixtures are real Mixcloud data)
 - `scripts/dev-server.sh`: Docker LMS **9.0.0** on :9100 (`LMS_VERSION=` to change); `docker restart mixcloud-lms` reloads code, then rerun `scripts/test-player.sh`
+- `scripts/icon.py`: generates the icon (original cloud + equaliser mark): `<name>.svg` 24×24 #000 glyph that Material swaps in for `<name>_svg.png`, plus the 512 px full-bleed colour tile (rendered with macOS `qlmanage`). Keep the tile full-bleed: QuickLook flattens transparency onto white, which showed as white corners on dark themes. Bump `NAME` (and install.xml) on any art change, since LMS caches resized icons by path.
 - `scripts/smoke.py`: weekly CI check of the undocumented Mixcloud behaviour below
 
 ## Mixcloud facts (verified Nov 2026)

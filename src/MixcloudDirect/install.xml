@@ -3,11 +3,11 @@
 	<id>MixcloudDirect</id>
 	<name>PLUGIN_MIXCLOUDDIRECT</name>
 	<module>Plugins::MixcloudDirect::Plugin</module>
-	<version>0.1.1</version>
+	<version>0.1.2</version>
 	<description>PLUGIN_MIXCLOUDDIRECT_DESC</description>
 	<creator>Ethan Rosch</creator>
 	<category>musicservices</category>
-	<icon>plugins/MixcloudDirect/html/images/mixcloud-direct_svg.png</icon>
+	<icon>plugins/MixcloudDirect/html/images/mixcloud-direct-2_svg.png</icon>
 	<optionsURL>plugins/MixcloudDirect/settings/basic.html</optionsURL>
 	<type>2</type><!-- type=extension -->
 	<targetApplication>
