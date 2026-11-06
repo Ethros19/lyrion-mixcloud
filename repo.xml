@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extensions>
+	<details>
+		<title lang="EN">Mixcloud Direct</title>
+	</details>
+	<plugins>
+		<plugin name="MixcloudDirect" version="0.1.0" minTarget="8.0" maxTarget="*">
+			<title lang="EN">Mixcloud Direct</title>
+			<desc lang="EN">Browse and play Mixcloud shows with no helper application: search, categories, and any user's uploads, favourites, playlists and follows. Works on Lyrion 8 and 9.</desc>
+			<creator>Ethan Rosch</creator>
+			<category>musicservices</category>
+			<link>https://github.com/Ethros19/lyrion-mixcloud</link>
+			<url>https://github.com/Ethros19/lyrion-mixcloud/releases/download/v0.1.0/MixcloudDirect-0.1.0.zip</url>
+			<sha>e23920f0ea6207655a2dac6658b18b6520d3dc72</sha>
+		</plugin>
+	</plugins>
+</extensions>
