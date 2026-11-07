@@ -64,7 +64,7 @@ https://raw.githubusercontent.com/Ethros19/lyrion-mixcloud/main/repo.xml
 ```
 
 Save, find **Mixcloud Direct** in the plugin list, tick it, apply, and restart when prompted.
-It shows up under **My Apps** as **Mixcloud**. Updates appear in the same place after a new release.
+It shows up under **My Apps** as **Mixcloud Direct**, so it's easy to tell apart from the official plugin if you have both. Updates appear in the same place after a new release.
 
 If the official Mixcloud plugin is installed, you can untick it: the two don't share settings,
 favourites or URLs. (Unticking a plugin from a repository uninstalls it; you can reinstall it

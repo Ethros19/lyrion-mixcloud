@@ -2,7 +2,7 @@ PLUGIN_MIXCLOUDDIRECT
 	EN	Mixcloud Direct
 
 PLUGIN_MIXCLOUDDIRECT_MENU
-	EN	Mixcloud
+	EN	Mixcloud Direct
 
 PLUGIN_MIXCLOUDDIRECT_DESC
 	EN	Mixcloud for Lyrion servers that can't run the official plugin. Built for Lyrion 9.0 servers that can't be upgraded, and tested on 8.5, 9.0, 9.1 and 9.2; no helper application needed. Shows and Mixcloud Live streams. Read-only: browse, search and play, and see your public profile by username. Manage your Mixcloud account on mixcloud.com.
