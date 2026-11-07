@@ -4,14 +4,14 @@
 		<title lang="EN">Mixcloud Direct</title>
 	</details>
 	<plugins>
-		<plugin name="MixcloudDirect" version="0.2.0" minTarget="8.0" maxTarget="*">
+		<plugin name="MixcloudDirect" version="0.3.0" minTarget="8.0" maxTarget="*">
 			<title lang="EN">Mixcloud Direct</title>
 			<desc lang="EN">Mixcloud for Lyrion servers that can't run the official plugin (built for 9.0 servers that can't upgrade; tested on 8.5, 9.0, 9.1 and 9.2). No login, no yt-dlp. Read-only: browse, search and play; manage your account on mixcloud.com.</desc>
 			<creator>Ethan Rosch</creator>
 			<category>musicservices</category>
 			<link>https://github.com/Ethros19/lyrion-mixcloud</link>
-			<url>https://github.com/Ethros19/lyrion-mixcloud/releases/download/v0.2.0/MixcloudDirect-0.2.0.zip</url>
-			<sha>1dccf408c4ee7deac76e340b9dc0d37e61233a82</sha>
+			<url>https://github.com/Ethros19/lyrion-mixcloud/releases/download/v0.3.0/MixcloudDirect-0.3.0.zip</url>
+			<sha>ef0af774eec56a77ddecd5c370a306b72b4bb362</sha>
 		</plugin>
 	</plugins>
 </extensions>
