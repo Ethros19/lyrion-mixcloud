@@ -37,8 +37,12 @@ isn't sent to Mixcloud and doesn't appear in the Mixcloud app.
 - **Followed**: tap **Follow in Lyrion** on any DJ or station page, then open
   **New from People You Follow** for their latest uploads, newest first. Unfollow sits at the
   bottom of their page.
+- **Live streams**: when a DJ or station is broadcasting on Mixcloud Live, a **Live now** entry
+  appears on their page and at the top of **Followed**, and pasted `mixcloud.com/live/…` links
+  play. Audio only, 320 kbps AAC, played like a radio station (no seeking). Live streams work
+  as favourites too: they play whatever that DJ has on air.
 - **Search**: shows, DJs & stations, and genres. Or paste a mixcloud.com link: a show plays,
-  a profile opens.
+  a profile opens, a live link plays the stream.
 - **Music and Talk categories**, each with **Popular** and **Latest**.
 - **192 kbps AAC** where Mixcloud offers it (older uploads are 64 kbps only), with accurate
   seeking.
@@ -84,7 +88,8 @@ Three things changed on Mixcloud's side that older Lyrion servers trip over:
 
 Mixcloud Direct uses only Mixcloud's public REST and GraphQL APIs, so it never needs OAuth. It
 sends HTTP/1.1 with its own User-Agent. It plays the HLS stream by fetching the segments itself
-and passing the AAC inside them to Lyrion, in plain Perl. That costs about 1 ms of CPU per
+and passing the AAC inside them to Lyrion, in plain Perl: MPEG-TS for shows, and the audio-only
+fragmented-MP4 rendition for live streams (the video is never downloaded). That costs about 1 ms of CPU per
 10 s of audio, so it's comfortable on modest hardware.
 
 ## Release
@@ -101,7 +106,7 @@ docker restart mixcloud-lms      # reload after editing Perl (then rerun test-pl
 docker logs -f mixcloud-lms      # plugin logs at INFO
 ./scripts/test-player.sh         # headless player for CLI testing (plays faster than real time)
 ./scripts/lms.sh 00:11:22:33:44:66 '["mixclouddirect","items",0,10]'   # browse via JSON-RPC
-prove tests/                     # unit tests: URL decoding, HLS parsing, TS demux, ADTS
+prove tests/                     # unit tests: URL decoding, HLS parsing, TS and fMP4 demux, ADTS
 python3 scripts/smoke.py         # do Mixcloud's services still behave as assumed? (weekly in CI)
 python3 scripts/icon.py          # regenerate the icons
 ./scripts/serve-lan.sh           # serve a build to a Lyrion server on your LAN, no GitHub needed

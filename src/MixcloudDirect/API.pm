@@ -223,6 +223,75 @@ sub getShow {
 	});
 }
 
+use constant LIVE_FIELDS => 'username displayName picture(width: 800, height: 800) { url } isLive liveStream { name description hlsUrl streamStatus }';
+
+my %lives;
+
+sub _normalizeLive {
+	my $raw = shift || return;
+	my $stream = $raw->{liveStream} || {};
+	my $live = {
+		user        => $raw->{username},
+		owner       => $raw->{displayName} || $raw->{username},
+		image       => $raw->{picture} && $raw->{picture}{url},
+		live        => ($raw->{isLive} && ($stream->{streamStatus} || 'LIVE') eq 'LIVE' && $stream->{hlsUrl}) ? 1 : 0,
+		name        => $stream->{name},
+		description => $stream->{description},
+	};
+	$lives{ lc $live->{user} } = { %$live };       # metadata only: the url expires
+	$live->{hls} = $stream->{hlsUrl} if $live->{live};
+	return $live;
+}
+
+# Is <user> broadcasting? cb->({ user, owner, image, live, name, description, hls })
+# or cb->() if there's no such user
+sub getLive {
+	my ($class, $user, $cb) = @_;
+
+	my $json = JSON::XS->new->allow_nonref;
+	my $query = '{ userLookup(lookup: {username: ' . $json->encode($user) . '}) { ' . LIVE_FIELDS . ' } }';
+
+	_fetch(GRAPHQL . '?query=' . uri_escape_utf8($query), sub {
+		my $data = shift;
+		$cb->(_normalizeLive($data && $data->{data} && $data->{data}{userLookup}));
+	});
+}
+
+# Several users, ten per request (GraphQL aliases, kept short enough for a
+# GET url): cb->({ lc(user) => live })
+use constant LIVE_BATCH => 10;
+
+sub getLives {
+	my ($class, $users, $cb) = @_;
+	my @users = @{ $users || [] };
+	return $cb->({}) unless @users;
+
+	my $json = JSON::XS->new->allow_nonref;
+	my %out;
+	my @batches;
+	push @batches, [ splice @users, 0, LIVE_BATCH ] while @users;
+	my $pending = @batches;
+
+	for my $batch (@batches) {
+		my $i = 0;
+		my $query = '{ ' . join(' ', map { 'u' . $i++ . ': userLookup(lookup: {username: ' . $json->encode($_) . '}) { ' . LIVE_FIELDS . ' }' } @$batch) . ' }';
+
+		_fetch(GRAPHQL . '?query=' . uri_escape_utf8($query), sub {
+			my $data = shift;
+			for my $raw (values %{ $data && $data->{data} || {} }) {
+				my $live = _normalizeLive($raw) || next;
+				$out{ lc $live->{user} } = $live;
+			}
+			$cb->(\%out) unless --$pending;
+		});
+	}
+}
+
+sub cachedLive {
+	my ($class, $user) = @_;
+	return $lives{ lc $user };
+}
+
 # Plain-text GET (HLS playlists)
 sub getText {
 	my ($class, $url, $cb) = @_;

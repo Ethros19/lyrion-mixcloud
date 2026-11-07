@@ -11,9 +11,11 @@ use Exporter qw(import);
 use MIME::Base64 qw(decode_base64);
 
 our @EXPORT_OK = qw(
-	decodeStreamUrl parseKey cloudcastUrl
+	decodeStreamUrl parseKey cloudcastUrl parseLiveKey liveUrl
 	parseMasterPlaylist parseMediaPlaylist pickVariant segmentAt
+	audioRendition parseLivePlaylist
 	tsToAdts adtsInfo adtsSkip
+	mp4AudioConfig fmp4Samples adtsHeader fmp4ToAdts
 	formatDuration pictureUrl trackAt
 );
 
@@ -42,9 +44,21 @@ sub parseKey {
 	$key =~ s{^https?://(?:www\.|m\.|beta\.)?mixcloud\.com}{}i;
 	$key =~ s{[?#].*$}{};
 	my ($user, $slug) = $key =~ m{^/?([^/]+)/([^/]+)/?$} or return;
+	return if $user eq 'live';    # /live/<user>/ is a live stream (parseLiveKey)
 	return if $slug =~ /^(?:uploads|favorites|listens|playlists|stream|followers|following)$/;
 	return ($user, $slug);
 }
+
+# "/live/<user>/" or "https://www.mixcloud.com/live/<user>/?utm..." -> user
+sub parseLiveKey {
+	my $key = shift || return;
+	$key =~ s{^https?://(?:www\.|m\.|beta\.)?mixcloud\.com}{}i;
+	$key =~ s{[?#].*$}{};
+	my ($user) = $key =~ m{^/?live/([^/]+)/?$} or return;
+	return $user;
+}
+
+sub liveUrl { "mcdirect://live/$_[0]" }
 
 sub cloudcastUrl {
 	my ($user, $slug) = @_;
@@ -97,6 +111,46 @@ sub parseMediaPlaylist {
 	}
 
 	return \@segments;
+}
+
+# Live masters carry video variants plus a separate audio-only rendition
+# (#EXT-X-MEDIA:TYPE=AUDIO,...,URI="index-audio.m3u8"): its absolute url
+sub audioRendition {
+	my ($text, $base) = @_;
+	my ($fallback, $default);
+	for my $line (split /\r?\n/, $text || '') {
+		next unless $line =~ /^#EXT-X-MEDIA:(.*)/ && $1 =~ /(?:^|,)TYPE=AUDIO(?:,|$)/;
+		my ($uri) = $line =~ /URI="([^"]+)"/ or next;
+		$fallback ||= $uri;
+		$default ||= $uri if $line =~ /DEFAULT=YES/;
+	}
+	my $uri = $default || $fallback;
+	return $uri ? _absolute($uri, $base) : undef;
+}
+
+# Live media playlist -> { sequence, target, map, ended, segments => [{ seq, duration, url }] }
+sub parseLivePlaylist {
+	my ($text, $base) = @_;
+	my %pl = (sequence => 0, target => 2, segments => [], ended => 0);
+	my $duration;
+
+	for my $line (split /\r?\n/, $text || '') {
+		if    ($line =~ /^#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/)  { $pl{sequence} = $1 }
+		elsif ($line =~ /^#EXT-X-TARGETDURATION:\s*([\d.]+)/) { $pl{target} = $1 }
+		elsif ($line =~ /^#EXT-X-MAP:.*URI="([^"]+)"/)      { $pl{map} = _absolute($1, $base) }
+		elsif ($line =~ /^#EXT-X-ENDLIST/)                  { $pl{ended} = 1 }
+		elsif ($line =~ /^#EXTINF:\s*([\d.]+)/)             { $duration = $1 }
+		elsif (defined $duration && $line =~ /^[^#\s]/) {
+			push @{ $pl{segments} }, {
+				# Mixcloud's sequence numbers are ~1.8e15: fine as 64-bit integers
+				seq      => $pl{sequence} + @{ $pl{segments} },
+				duration => $duration,
+				url      => _absolute($line, $base),
+			};
+			undef $duration;
+		}
+	}
+	return \%pl;
 }
 
 # index of the segment holding $secs, and how far into it that is
@@ -215,6 +269,178 @@ sub adtsSkip {
 	}
 
 	return (substr($buf, $pos), $skipped);
+}
+
+# -- fragmented MP4 (CMAF) audio, as in Mixcloud live streams ------------
+
+sub _boxes {
+	my ($buf, $start, $end) = @_;
+	use bytes;
+	my @out;
+	my $pos = $start;
+	while ($pos + 8 <= $end) {
+		my ($size, $type) = unpack('N a4', substr($buf, $pos, 8));
+		my $header = 8;
+		if ($size == 1) {
+			my ($hi, $lo) = unpack('N N', substr($buf, $pos + 8, 8));
+			$size = $hi * 4294967296 + $lo;
+			$header = 16;
+		}
+		elsif ($size == 0) {
+			$size = $end - $pos;
+		}
+		last if $size < $header || $pos + $size > $end;
+		push @out, { type => $type, start => $pos, body => $pos + $header, end => $pos + $size };
+		$pos += $size;
+	}
+	return @out;
+}
+
+sub _child {
+	my ($buf, $box, @path) = @_;
+	for my $type (@path) {
+		($box) = grep { $_->{type} eq $type } _boxes($buf, $box->{body}, $box->{end});
+		return unless $box;
+	}
+	return $box;
+}
+
+# MPEG-4 descriptor length: 1-4 bytes, 7 bits each
+sub _descLen {
+	my ($buf, $pos) = @_;
+	my $len = 0;
+	for (1 .. 4) {
+		my $b = ord(substr($buf, $$pos++, 1));
+		$len = ($len << 7) | ($b & 0x7f);
+		last unless $b & 0x80;
+	}
+	return $len;
+}
+
+# init segment -> { object, rateIndex, samplerate, channels, timescale, bitrate }
+sub mp4AudioConfig {
+	my $buf = shift;
+	use bytes;
+	return unless defined $buf;
+
+	my ($moov) = grep { $_->{type} eq 'moov' } _boxes($buf, 0, length $buf) or return;
+	my $trak = _child($buf, $moov, 'trak') or return;
+	my $mdhd = _child($buf, $trak, 'mdia', 'mdhd');
+	my $stsd = _child($buf, $trak, 'mdia', 'minf', 'stbl', 'stsd') or return;
+
+	my $timescale;
+	if ($mdhd) {
+		my $version = ord(substr($buf, $mdhd->{body}, 1));
+		$timescale = unpack('N', substr($buf, $mdhd->{body} + ($version ? 20 : 12), 4));
+	}
+
+	# stsd: version/flags(4) count(4), then the mp4a sample entry: 8 header +
+	# 28 bytes of audio sample entry fields, then its child boxes (esds)
+	my ($mp4a) = grep { $_->{type} eq 'mp4a' } _boxes($buf, $stsd->{body} + 8, $stsd->{end}) or return;
+	my ($esds) = grep { $_->{type} eq 'esds' } _boxes($buf, $mp4a->{body} + 28, $mp4a->{end}) or return;
+
+	my $pos = $esds->{body} + 4;                      # version/flags
+	return unless ord(substr($buf, $pos++, 1)) == 0x03; # ES_Descriptor
+	_descLen($buf, \$pos);
+	$pos += 2;                                        # ES_ID
+	my $flags = ord(substr($buf, $pos++, 1));
+	$pos += 2 if $flags & 0x80;                       # dependsOn_ES_ID
+	$pos += 1 + ord(substr($buf, $pos, 1)) if $flags & 0x40;   # URL
+	$pos += 2 if $flags & 0x20;                       # OCR_ES_Id
+	return unless ord(substr($buf, $pos++, 1)) == 0x04; # DecoderConfigDescriptor
+	_descLen($buf, \$pos);
+	my $bitrate = unpack('N', substr($buf, $pos + 9, 4));   # avgBitrate (0 = variable)
+	$pos += 13;                                       # objectType ... avgBitrate
+	return unless ord(substr($buf, $pos++, 1)) == 0x05; # DecoderSpecificInfo
+	my $len = _descLen($buf, \$pos);
+	return unless $len >= 2;
+
+	# AudioSpecificConfig: 5 bits object type, 4 bits rate index, 4 bits channels
+	my $asc = unpack('n', substr($buf, $pos, 2));
+	my $object    = $asc >> 11;
+	my $rateIndex = ($asc >> 7) & 0x0f;
+	my $channels  = ($asc >> 3) & 0x0f;
+	return if $object == 31 || $rateIndex == 15;      # escape values: not seen, not handled
+
+	return {
+		object     => $object,
+		rateIndex  => $rateIndex,
+		samplerate => $SAMPLE_RATES[$rateIndex],
+		channels   => $channels,
+		timescale  => $timescale,
+		bitrate    => $bitrate || undef,
+	};
+}
+
+# media segment -> list of raw AAC frames (one per sample)
+sub fmp4Samples {
+	my $buf = shift;
+	use bytes;
+	my @samples;
+
+	for my $moof (grep { $_->{type} eq 'moof' } _boxes($buf, 0, length $buf)) {
+		for my $traf (grep { $_->{type} eq 'traf' } _boxes($buf, $moof->{body}, $moof->{end})) {
+			my ($tfhd) = grep { $_->{type} eq 'tfhd' } _boxes($buf, $traf->{body}, $traf->{end}) or next;
+
+			my $tf = unpack('N', substr($buf, $tfhd->{body}, 4)) & 0xffffff;
+			my $p = $tfhd->{body} + 8;                # version/flags + track_ID
+			my $base = $moof->{start};                # default-base-is-moof (CMAF)
+			if ($tf & 0x01) {
+				my ($hi, $lo) = unpack('N N', substr($buf, $p, 8));
+				$base = $hi * 4294967296 + $lo;
+				$p += 8;
+			}
+			$p += 4 if $tf & 0x02;                    # sample_description_index
+			$p += 4 if $tf & 0x08;                    # default_sample_duration
+			my $defaultSize = $tf & 0x10 ? unpack('N', substr($buf, $p, 4)) : 0;
+
+			my $offset = $base;
+			for my $trun (grep { $_->{type} eq 'trun' } _boxes($buf, $traf->{body}, $traf->{end})) {
+				my $f = unpack('N', substr($buf, $trun->{body}, 4)) & 0xffffff;
+				my $count = unpack('N', substr($buf, $trun->{body} + 4, 4));
+				my $q = $trun->{body} + 8;
+				if ($f & 0x01) {
+					$offset = $base + unpack('l>', substr($buf, $q, 4));
+					$q += 4;
+				}
+				$q += 4 if $f & 0x04;                 # first_sample_flags
+
+				for (1 .. $count) {
+					$q += 4 if $f & 0x100;            # duration
+					my $size = $defaultSize;
+					if ($f & 0x200) { $size = unpack('N', substr($buf, $q, 4)); $q += 4 }
+					$q += 4 if $f & 0x400;            # flags
+					$q += 4 if $f & 0x800;            # composition offset
+					last if $offset + $size > length $buf;
+					push @samples, substr($buf, $offset, $size);
+					$offset += $size;
+				}
+			}
+		}
+	}
+
+	return @samples;
+}
+
+# 7-byte ADTS header for one raw AAC frame
+sub adtsHeader {
+	my ($config, $len) = @_;
+	my $full = $len + 7;
+	my $profile = ($config->{object} - 1) & 0x03;
+	return pack('C7',
+		0xff,
+		0xf1,                                         # MPEG-4, layer 0, no CRC
+		($profile << 6) | ($config->{rateIndex} << 2) | (($config->{channels} >> 2) & 1),
+		(($config->{channels} & 3) << 6) | (($full >> 11) & 3),
+		($full >> 3) & 0xff,
+		(($full & 7) << 5) | 0x1f,                    # buffer fullness 0x7FF (VBR)
+		0xfc,                                         # ... and one raw data block
+	);
+}
+
+sub fmp4ToAdts {
+	my ($segment, $config) = @_;
+	return join '', map { adtsHeader($config, length $_) . $_ } fmp4Samples($segment);
 }
 
 sub formatDuration {

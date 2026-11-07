@@ -5,7 +5,7 @@ PLUGIN_MIXCLOUDDIRECT_MENU
 	EN	Mixcloud
 
 PLUGIN_MIXCLOUDDIRECT_DESC
-	EN	Mixcloud for Lyrion servers that can't run the official plugin. Built for Lyrion 9.0 servers that can't be upgraded, and tested on 8.5, 9.0, 9.1 and 9.2; no helper application needed. Read-only: browse, search and play, and see your public profile by username. Manage your Mixcloud account on mixcloud.com.
+	EN	Mixcloud for Lyrion servers that can't run the official plugin. Built for Lyrion 9.0 servers that can't be upgraded, and tested on 8.5, 9.0, 9.1 and 9.2; no helper application needed. Shows and Mixcloud Live streams. Read-only: browse, search and play, and see your public profile by username. Manage your Mixcloud account on mixcloud.com.
 
 PLUGIN_MIXCLOUDDIRECT_ABOUT
 	EN	Built for Lyrion servers that can't be upgraded to 9.2, where the official Mixcloud plugin can neither log in nor play. This plugin plays Mixcloud's own streams directly, with no yt-dlp or other helper, so it runs on older servers and modest hardware.
@@ -90,6 +90,18 @@ PLUGIN_MIXCLOUDDIRECT_UNFOLLOWED
 
 PLUGIN_MIXCLOUDDIRECT_NO_FOLLOWS
 	EN	You're not following anyone yet. Open a DJ or station (Search › Search DJs & Stations, or from My Mixcloud) and choose Follow in Lyrion.
+
+PLUGIN_MIXCLOUDDIRECT_LIVE_NOW
+	EN	Live now
+
+PLUGIN_MIXCLOUDDIRECT_LIVE_ALBUM
+	EN	Mixcloud Live
+
+PLUGIN_MIXCLOUDDIRECT_NOT_LIVE
+	EN	Not live on Mixcloud right now.
+
+PLUGIN_MIXCLOUDDIRECT_NOT_LIVE_NAMED
+	EN	%s isn't live on Mixcloud right now.
 
 PLUGIN_MIXCLOUDDIRECT_SEARCH
 	EN	Search

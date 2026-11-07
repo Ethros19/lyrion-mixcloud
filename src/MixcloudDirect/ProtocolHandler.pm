@@ -1,6 +1,7 @@
 package Plugins::MixcloudDirect::ProtocolHandler;
 
-# mcdirect://<username>/<slug>
+# mcdirect://<username>/<slug>   a show
+# mcdirect://live/<username>     their live stream (streamed by Live.pm)
 #
 # Plays a Mixcloud show without yt-dlp: at play time the GraphQL API gives us
 # the show's HLS url, we pick a variant (192k or 64k AAC), and this handler
@@ -23,6 +24,7 @@ use Slim::Utils::Strings qw(cstring);
 use Slim::Utils::Timers;
 
 use Plugins::MixcloudDirect::API;
+use Plugins::MixcloudDirect::Live;
 use Plugins::MixcloudDirect::Util qw(parseMasterPlaylist parseMediaPlaylist pickVariant segmentAt tsToAdts adtsSkip trackAt);
 
 my $log   = logger('plugin.mixclouddirect');
@@ -37,12 +39,22 @@ sub parseUrl {
 	return $url =~ m{^mcdirect://([^/]+)/([^/?#]+)} ? ($1, $2) : ();
 }
 
+# mcdirect://live/<user> -> user (Mixcloud has no user called "live": it's a route)
+sub liveUser {
+	my $url = shift || return;
+	return $url =~ m{^mcdirect://live/([^/?#]+)} ? $1 : undef;
+}
+
 sub isRemote        { 1 }
 sub isAudio         { 1 }
 sub canDirectStream { 0 }    # players can't speak HLS; we always proxy
 sub getFormatForURL { 'aac' }
 sub formatOverride  { 'aac' }
-sub canSeek         { 1 }
+sub canSeek {
+	my ($class, $client, $song) = @_;
+	return 0 if $song && $song->currentTrack && liveUser($song->currentTrack->url);
+	return 1;
+}
 sub isRepeatingStream { 0 }
 sub audioScrobblerSource { 'P' }
 sub getIcon         { Plugins::MixcloudDirect::Plugin->icon }
@@ -56,6 +68,33 @@ sub getNextTrack {
 	my ($class, $song, $successCb, $errorCb) = @_;
 
 	my $url = $song->currentTrack->url;
+
+	if (defined(my $user = liveUser($url))) {
+		return Plugins::MixcloudDirect::Live->resolve($user, sub {
+			my ($stream, $error) = @_;
+			return $errorCb->($error, $url) unless $stream;
+
+			my $live = $stream->{live};
+			my $bitrate = $stream->{config}{bitrate};
+			$song->pluginData(mixcloud => {
+				live     => 1,
+				user     => $live->{user},
+				mediaUrl => $stream->{mediaUrl},
+				map      => $stream->{map},
+				config   => $stream->{config},
+				bitrate  => $bitrate,
+			});
+
+			Slim::Music::Info::setContentType($url, 'aac');
+			Slim::Music::Info::setBitrate($url, $bitrate) if $bitrate;
+			$song->currentTrack->title($live->{name} || $live->{owner}) if $song->currentTrack->can('title');
+
+			$song->master->currentPlaylistUpdateTime(Time::HiRes::time());
+			Slim::Control::Request::notifyFromArray($song->master, ['newmetadata']);
+			$successCb->();
+		});
+	}
+
 	my ($user, $slug) = parseUrl($url) or return $errorCb->('PLUGIN_MIXCLOUDDIRECT_NOT_FOUND', $url);
 
 	Plugins::MixcloudDirect::API->getShow($user, $slug, sub {
@@ -114,6 +153,8 @@ sub _variant {
 
 sub new {
 	my ($class, $args) = @_;
+
+	return Plugins::MixcloudDirect::Live->new($args) if liveUser($args->{url});
 
 	my $song = $args->{song};
 	my $data = $song->pluginData('mixcloud');
@@ -249,6 +290,22 @@ sub getMetadataFor {
 	my ($class, $client, $url) = @_;
 
 	my $icon = Plugins::MixcloudDirect::Plugin->icon;
+
+	if (defined(my $liveUser = liveUser($url))) {
+		my $live = Plugins::MixcloudDirect::API->cachedLive($liveUser) || {};
+		my $song = $client && $client->playingSong;
+		my $data = $song && $song->currentTrack && $song->currentTrack->url eq $url && $song->pluginData('mixcloud');
+		return {
+			title  => $live->{name} || $liveUser,
+			artist => $live->{owner} || $liveUser,
+			album  => Slim::Utils::Strings::cstring($client, 'PLUGIN_MIXCLOUDDIRECT_LIVE_ALBUM'),
+			cover  => $live->{image} || $icon,
+			icon   => $icon,
+			type   => 'AAC (Mixcloud Live)',
+			($data && $data->{bitrate} ? (bitrate => int($data->{bitrate} / 1000) . 'kbps') : ()),
+		};
+	}
+
 	my ($user, $slug) = parseUrl($url) or return {};
 
 	my $show = Plugins::MixcloudDirect::API->cachedShow($user, $slug);

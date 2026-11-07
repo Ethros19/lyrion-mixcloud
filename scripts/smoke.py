@@ -83,6 +83,27 @@ _, seg = get(urllib.parse.urljoin(media_url, segments[0]), raw=True)
 check("segment is MPEG-TS", seg[:1] == b"\x47" and seg[188:189] == b"\x47")
 check("segment carries ADTS audio", b"\xff\xf1" in seg[:4096] or b"\xff\xf9" in seg[:4096])
 
+# Live: House FM broadcasts around the clock
+query = '{ userLookup(lookup: {username: "HSEFM"}) { isLive liveStream { hlsUrl streamStatus } } }'
+_, body = get("https://app.mixcloud.com/graphql?query=" + urllib.parse.quote(query))
+user = json.loads(body)["data"]["userLookup"]
+if user and user.get("isLive") and user.get("liveStream", {}).get("hlsUrl"):
+    live = user["liveStream"]["hlsUrl"]
+    _, master = get(live)
+    import re
+    audio = re.search(r'#EXT-X-MEDIA:TYPE=AUDIO[^\n]*URI="([^"]+)"', master)
+    check("live master has an audio-only rendition", bool(audio))
+    if audio:
+        media_url = urllib.parse.urljoin(live, audio.group(1))
+        _, media = get(media_url)
+        init = re.search(r'#EXT-X-MAP:URI="([^"]+)"', media)
+        segs = [l for l in media.splitlines() if l and not l.startswith("#")]
+        check("live audio playlist has init + .m4s segments", bool(init) and segs and segs[-1].endswith(".m4s"), f"{len(segs)} segments")
+        _, init_bytes = get(urllib.parse.urljoin(media_url, init.group(1)), raw=True)
+        check("live init segment is AAC (esds/mp4a)", b"mp4a" in init_bytes and b"esds" in init_bytes)
+else:
+    print("NOTE House FM isn't live right now; live checks skipped")
+
 # User-Agent handling on the CDN
 try:
     get(hls, ua=LMS_UA)

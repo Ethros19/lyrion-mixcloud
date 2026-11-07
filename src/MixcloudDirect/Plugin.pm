@@ -12,7 +12,7 @@ use Slim::Utils::Strings qw(cstring);
 
 use Plugins::MixcloudDirect::API;
 use Plugins::MixcloudDirect::ProtocolHandler;
-use Plugins::MixcloudDirect::Util qw(parseKey cloudcastUrl formatDuration pictureUrl);
+use Plugins::MixcloudDirect::Util qw(parseKey parseLiveKey cloudcastUrl liveUrl formatDuration pictureUrl);
 
 my $log = Slim::Utils::Log->addLogCategory({
 	category     => 'plugin.mixclouddirect',
@@ -176,6 +176,24 @@ sub _showItem {
 	};
 }
 
+sub _liveItem {
+	my ($client, $live) = @_;
+	my $name = $live->{name} || $live->{owner};
+	my $now = cstring($client, 'PLUGIN_MIXCLOUDDIRECT_LIVE_NOW');
+
+	return {
+		name  => "$now: $name - $live->{owner}",
+		line1 => "$now: $name",
+		line2 => $live->{owner},
+		favorites_title => "$live->{owner} - " . cstring($client, 'PLUGIN_MIXCLOUDDIRECT_LIVE_ALBUM'),
+		type  => 'audio',
+		url   => liveUrl($live->{user}),
+		play  => liveUrl($live->{user}),
+		image => $live->{image} || icon(),
+		on_select => 'play',
+	};
+}
+
 # A REST list of cloudcasts at $path -> menu, with "More" for the next page
 sub showList {
 	my ($client, $cb, $args, $pass) = @_;
@@ -238,6 +256,15 @@ sub _userItem {
 sub userMenu {
 	my ($client, $cb, $args, $pass) = @_;
 
+	Plugins::MixcloudDirect::API->getLive($pass->{user}, sub {
+		my $live = shift;
+		_userMenu($client, $cb, $args, $pass, $live && $live->{live} ? $live : undef);
+	});
+}
+
+sub _userMenu {
+	my ($client, $cb, $args, $pass, $live) = @_;
+
 	my $user = $pass->{user};
 	my $u = uri_escape_utf8($user);
 
@@ -299,6 +326,12 @@ sub userMenu {
 		$following ? push(@items, $entry) : unshift(@items, $entry);
 	}
 
+	# "Live now" goes after a leading Follow entry, so Follow stays first
+	if ($live) {
+		my $at = (!$pass->{mine} && !_follows()->{$user}) ? 1 : 0;
+		splice @items, $at, 0, _liveItem($client, $live);
+	}
+
 	$cb->({ items => \@items });
 }
 
@@ -336,25 +369,31 @@ sub followedMenu {
 
 	return $cb->({ items => [{ name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NO_FOLLOWS'), type => 'text' }] }) unless @users;
 
-	$cb->({ items => [
-		{
-			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NEW_FROM_FOLLOWED'),
-			type  => 'link',
-			url   => \&followedFeed,
-			image => _icon('new_releases'),
-		},
-		map {
-			my $f = $follows->{$_};
+	Plugins::MixcloudDirect::API->getLives(\@users, sub {
+		my $lives = shift || {};
+
+		$cb->({ items => [
+			# whoever is broadcasting right now, first
+			(map { _liveItem($client, $lives->{lc $_}) } grep { $lives->{lc $_} && $lives->{lc $_}{live} } @users),
 			{
-				name  => $f->{name} || $_,
-				line2 => $f->{name} && $f->{name} ne $_ ? $_ : undef,
+				name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NEW_FROM_FOLLOWED'),
 				type  => 'link',
-				url   => \&userMenu,
-				passthrough => [{ user => $_, name => $f->{name}, image => $f->{image} }],
-				image => $f->{image} || icon(),
-			}
-		} @users
-	] });
+				url   => \&followedFeed,
+				image => _icon('new_releases'),
+			},
+			map {
+				my $f = $follows->{$_};
+				{
+					name  => $f->{name} || $_,
+					line2 => $f->{name} && $f->{name} ne $_ ? $_ : undef,
+					type  => 'link',
+					url   => \&userMenu,
+					passthrough => [{ user => $_, name => $f->{name}, image => $f->{image} }],
+					image => $f->{image} || icon(),
+				}
+			} @users
+		] });
+	});
 }
 
 use constant FEED_PER_USER => 10;
@@ -548,6 +587,26 @@ sub openUrl {
 
 	my $input = $args->{search} || '';
 	$input =~ s{^\s+|\s+$}{}g;
+
+	if (defined(my $liveUser = parseLiveKey($input))) {
+		return Plugins::MixcloudDirect::API->getLive($liveUser, sub {
+			my $live = shift;
+			return _error($client, $cb, 'PLUGIN_MIXCLOUDDIRECT_NOT_FOUND') unless $live;
+			return $cb->({ items => [ _liveItem($client, $live) ] }) if $live->{live};
+
+			# not on air: say so, and offer their page
+			$cb->({ items => [
+				{ name => sprintf(cstring($client, 'PLUGIN_MIXCLOUDDIRECT_NOT_LIVE_NAMED'), $live->{owner}), type => 'text' },
+				{
+					name  => $live->{owner},
+					type  => 'link',
+					url   => \&userMenu,
+					passthrough => [{ user => $live->{user}, name => $live->{owner}, image => $live->{image} }],
+					image => $live->{image} || icon(),
+				},
+			] });
+		});
+	}
 
 	if (my ($user, $slug) = parseKey($input)) {
 		return Plugins::MixcloudDirect::API->getShow($user, $slug, sub {
