@@ -1,7 +1,7 @@
 # Mixcloud Direct for Lyrion
 
 Lyrion Music Server (LMS) plugin for Mixcloud with no yt-dlp/OAuth, built to
-work on LMS 9.0 (the owner's server, 192.168.1.133:9000, can't be upgraded) and
+work on LMS 9.0 (the owner's server, which can't be upgraded) and
 published for others in the same spot. Tested on LMS 8.5.2, 9.0.0, 9.1.2, 9.2.0.
 Read-only by design: it never logs in or changes the Mixcloud account (README,
 plugin description and settings page all say so; keep it that way).
