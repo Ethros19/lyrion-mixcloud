@@ -3,7 +3,7 @@
 	<id>MixcloudDirect</id>
 	<name>PLUGIN_MIXCLOUDDIRECT</name>
 	<module>Plugins::MixcloudDirect::Plugin</module>
-	<version>0.3.1</version>
+	<version>0.3.2</version>
 	<description>PLUGIN_MIXCLOUDDIRECT_DESC</description>
 	<creator>Ethan Rosch</creator>
 	<category>musicservices</category>

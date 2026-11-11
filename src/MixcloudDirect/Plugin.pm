@@ -4,6 +4,7 @@ use strict;
 use utf8;
 use base qw(Slim::Plugin::OPMLBased);
 
+use Time::HiRes;
 use URI::Escape qw(uri_escape_utf8);
 
 use Slim::Utils::Log;
@@ -58,9 +59,15 @@ sub icon { __PACKAGE__->_pluginDataFor('icon') }
 sub _icon { 'plugins/MixcloudDirect/html/images/MTL_icon_' . $_[0] . '.png' }
 
 sub handleFeed {
-	my ($client, $cb) = @_;
+	my ($client, $cb, $args) = @_;
 
 	my $username = $prefs->get('username');
+
+	# Does this client use menu mode (Material, Squeezebox controllers) or
+	# plain lists (LyrionJS's own look, the CLI)? Only this top level is
+	# told, and LMS rebuilds the menu from here on every request, so the flag
+	# rides along in passthroughs down to the user page (see _userMenu).
+	my $menu = ($args && ref $args->{params} eq 'HASH' && defined $args->{params}{menu}) ? 1 : 0;
 
 	$cb->({ items => [
 		($username
@@ -69,13 +76,14 @@ sub handleFeed {
 				line2 => $username,
 				type  => 'link',
 				url   => \&userMenu,
-				passthrough => [{ user => $username, mine => 1 }],
+				passthrough => [{ user => $username, mine => 1, menu => $menu }],
 				image => _icon('account_circle'),
 			}
 			: {
 				name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SET_USERNAME'),
 				type  => 'search',
 				url   => \&setUsername,
+				passthrough => [{ menu => $menu }],
 				image => _icon('account_circle'),
 			}
 		),
@@ -83,12 +91,14 @@ sub handleFeed {
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_FOLLOWED_MENU'),
 			type  => 'link',
 			url   => \&followedMenu,
+			passthrough => [{ menu => $menu }],
 			image => _icon('star'),
 		},
 		{
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH'),
 			type  => 'link',
 			url   => \&searchMenu,
+			passthrough => [{ menu => $menu }],
 			image => _icon('search'),
 		},
 		{
@@ -109,7 +119,8 @@ sub handleFeed {
 }
 
 sub searchMenu {
-	my ($client, $cb) = @_;
+	my ($client, $cb, $args, $pass) = @_;
+	my $menu = $pass && $pass->{menu};
 
 	$cb->({ items => [
 		{
@@ -123,7 +134,7 @@ sub searchMenu {
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_SEARCH_USERS'),
 			type  => 'search',
 			url   => \&search,
-			passthrough => [{ type => 'user' }],
+			passthrough => [{ type => 'user', menu => $menu }],
 			image => _icon('search'),
 		},
 		{
@@ -137,6 +148,7 @@ sub searchMenu {
 			name  => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_OPEN_URL'),
 			type  => 'search',
 			url   => \&openUrl,
+			passthrough => [{ menu => $menu }],
 			image => _icon('link'),
 		},
 	] });
@@ -239,7 +251,7 @@ sub showList {
 # -- users -----------------------------------------------------------------
 
 sub _userItem {
-	my ($client, $raw) = @_;
+	my ($client, $raw, $pass) = @_;
 	my $user = $raw->{username} || return;
 	my $image = pictureUrl($raw->{pictures});
 
@@ -248,7 +260,7 @@ sub _userItem {
 		line2 => $raw->{name} && $raw->{name} ne $user ? $user : undef,
 		type  => 'link',
 		url   => \&userMenu,
-		passthrough => [{ user => $user, name => $raw->{name}, image => $image }],
+		passthrough => [{ user => $user, name => $raw->{name}, image => $image, menu => $pass && $pass->{menu} }],
 		image => $image || icon(),
 	};
 }
@@ -295,7 +307,7 @@ sub _userMenu {
 			type => 'link',
 			image => _icon('people'),
 			url  => \&userList,
-			passthrough => [{ path => "/$u/following/" }],
+			passthrough => [{ path => "/$u/following/", menu => $pass->{menu} }],
 		},
 	);
 
@@ -309,28 +321,51 @@ sub _userMenu {
 		};
 	}
 	else {
-		# LMS addresses menu entries by position and rebuilds this page on
-		# every request, while Material shows its old copy when you go back.
-		# So "Follow" sits first and "Unfollow" last: a tap on a stale entry
-		# lands on Shows or Following, never on the opposite action.
+		# Follow entries go last, so the others never move. LMS addresses menu
+		# entries by position and remotes can show an old copy of this page.
 		my $following = _follows()->{$user};
-		my $entry = {
-			name => cstring($client, $following ? 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOW' : 'PLUGIN_MIXCLOUDDIRECT_FOLLOW'),
-			type => 'link',
-			image => _icon($following ? 'person_remove' : 'person_add'),
-			url  => \&setFollow,
-			passthrough => [{ user => $user, name => $pass->{name}, image => $pass->{image}, follow => !$following }],
-			# controllers that honour it redraw this page afterwards
-			nextWindow => 'refresh',
-		};
-		$following ? push(@items, $entry) : unshift(@items, $entry);
+		my %who = (user => $user, name => $pass->{name}, image => $pass->{image});
+
+		if ($pass->{menu}) {
+			# Menu mode (Material): one toggle with no type and no icon.
+			# Material then treats it as a clickable text row: it runs the
+			# action in place, shows setFollow's reply as a message and reloads
+			# this page (nextWindow "refresh"), so no stale toggle is left to
+			# tap. (As a link it would open a new page, and Material only
+			# honours "refresh" after a link whose result is empty, which LMS
+			# never sends in menu mode: it inserts an "Empty" item.)
+			push @items, {
+				name => cstring($client, $following ? 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOW' : 'PLUGIN_MIXCLOUDDIRECT_FOLLOW'),
+				url  => \&setFollow,
+				passthrough => [{ %who, follow => $following ? 0 : 1 }],
+				nextWindow => 'refresh',
+			};
+		}
+		else {
+			# Plain lists (LyrionJS's own look) keep showing their old copy of
+			# this page after going back, so a toggle could flip the wrong way.
+			# Each position keeps one meaning instead: Follow always follows
+			# (just confirms when already following); Unfollow, only there
+			# when following, always unfollows.
+			push @items, {
+				name => cstring($client, $following ? 'PLUGIN_MIXCLOUDDIRECT_FOLLOWING_IN_LYRION' : 'PLUGIN_MIXCLOUDDIRECT_FOLLOW'),
+				type => 'link',
+				image => _icon('person_add'),
+				url  => \&setFollow,
+				passthrough => [{ %who, follow => 1 }],
+			};
+			push @items, {
+				name => cstring($client, 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOW'),
+				type => 'link',
+				image => _icon('person_remove'),
+				url  => \&setFollow,
+				passthrough => [{ %who, follow => 0 }],
+			} if $following;
+		}
 	}
 
-	# "Live now" goes after a leading Follow entry, so Follow stays first
-	if ($live) {
-		my $at = (!$pass->{mine} && !_follows()->{$user}) ? 1 : 0;
-		splice @items, $at, 0, _liveItem($client, $live);
-	}
+	# "Live now" goes first
+	unshift @items, _liveItem($client, $live) if $live;
 
 	$cb->({ items => \@items });
 }
@@ -339,7 +374,13 @@ sub _userMenu {
 
 sub _follows { $prefs->get('follows') || {} }
 
-# Explicit follow/unfollow (see userMenu for why the entry moves)
+# Clients repeat requests: LyrionJS re-asks in menu mode whenever a reply is
+# text, and the menu-mode page holds the toggle at that position. A follow
+# request for the same user this soon after the previous one is that echo,
+# not a decision, so it changes nothing.
+use constant FOLLOW_REPEAT => 2;
+my %lastFollowRequest;
+
 sub setFollow {
 	my ($client, $cb, $args, $pass) = @_;
 
@@ -347,22 +388,32 @@ sub setFollow {
 	my $user = $pass->{user};
 	my $name = $pass->{name} || ($follows{$user} && $follows{$user}{name}) || $user;
 
-	if ($pass->{follow}) {
-		$follows{$user} ||= { name => $name, image => $pass->{image}, added => time() };
+	my $now = Time::HiRes::time();
+	my $echo = $now - ($lastFollowRequest{$user} || 0) < FOLLOW_REPEAT;
+	$lastFollowRequest{$user} = $now;
+
+	if ($echo) {
+		main::INFOLOG && $log->info("ignoring repeated follow request for $user");
 	}
-	else {
-		delete $follows{$user};
+	elsif ($pass->{follow} xor $follows{$user}) {
+		if ($pass->{follow}) {
+			$follows{$user} = { name => $name, image => $pass->{image}, added => time() };
+		}
+		else {
+			delete $follows{$user};
+		}
+		$prefs->set(follows => \%follows);
+		main::INFOLOG && $log->info(($pass->{follow} ? 'follow' : 'unfollow') . ": $user");
 	}
 
-	$prefs->set(follows => \%follows);
-	main::INFOLOG && $log->info(($pass->{follow} ? 'follow' : 'unfollow') . ": $user");
-
-	my $token = $pass->{follow} ? 'PLUGIN_MIXCLOUDDIRECT_FOLLOWED' : 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOWED';
-	$cb->({ items => [{ name => sprintf(cstring($client, $token), $name), type => 'text' }] });
+	my $token = $follows{$user} ? 'PLUGIN_MIXCLOUDDIRECT_FOLLOWED' : 'PLUGIN_MIXCLOUDDIRECT_UNFOLLOWED';
+	# the weblink makes Material show the reply as plain text (it wraps a
+	# lone, unclickable text item in HTML, which its message box shows raw)
+	$cb->({ items => [{ name => sprintf(cstring($client, $token), $name), type => 'text', weblink => 'https://www.mixcloud.com/' . uri_escape_utf8($user) . '/' }] });
 }
 
 sub followedMenu {
-	my ($client, $cb) = @_;
+	my ($client, $cb, $args, $pass) = @_;
 
 	my $follows = _follows();
 	my @users = sort { lc($follows->{$a}{name} || $a) cmp lc($follows->{$b}{name} || $b) } keys %$follows;
@@ -388,7 +439,7 @@ sub followedMenu {
 					line2 => $f->{name} && $f->{name} ne $_ ? $_ : undef,
 					type  => 'link',
 					url   => \&userMenu,
-					passthrough => [{ user => $_, name => $f->{name}, image => $f->{image} }],
+					passthrough => [{ user => $_, name => $f->{name}, image => $f->{image}, menu => $pass && $pass->{menu} }],
 					image => $f->{image} || icon(),
 				}
 			} @users
@@ -437,7 +488,7 @@ sub userList {
 		my $data = shift;
 		return _error($client, $cb) unless $data && $data->{data};
 
-		my @items = grep { $_ } map { _userItem($client, $_) } @{ $data->{data} };
+		my @items = grep { $_ } map { _userItem($client, $_, $pass) } @{ $data->{data} };
 
 		if (my $next = $data->{paging} && $data->{paging}{next}) {
 			push @items, {
@@ -445,7 +496,7 @@ sub userList {
 				type => 'link',
 				image => _icon('more_horiz'),
 				url  => \&userList,
-				passthrough => [{ path => $next }],
+				passthrough => [{ path => $next, menu => $pass->{menu} }],
 			} if @{ $data->{data} };
 		}
 
@@ -478,7 +529,7 @@ sub playlists {
 }
 
 sub setUsername {
-	my ($client, $cb, $args) = @_;
+	my ($client, $cb, $args, $pass) = @_;
 
 	my $input = $args->{search} || '';
 	$input =~ s{^\s+|\s+$}{}g;
@@ -493,7 +544,7 @@ sub setUsername {
 
 		$prefs->set(username => $data->{username});
 		$log->info("Mixcloud username set to $data->{username}");
-		userMenu($client, $cb, $args, { user => $data->{username}, mine => 1 });
+		userMenu($client, $cb, $args, { user => $data->{username}, mine => 1, menu => $pass && $pass->{menu} });
 	});
 }
 
@@ -519,7 +570,7 @@ sub search {
 
 		my @items;
 		if ($type eq 'user') {
-			@items = grep { $_ } map { _userItem($client, $_) } @{ $data->{data} };
+			@items = grep { $_ } map { _userItem($client, $_, $pass) } @{ $data->{data} };
 		}
 		else {
 			@items = map { _tagItem($client, $_) } @{ $data->{data} };
@@ -583,7 +634,8 @@ sub categories {
 
 # Paste a mixcloud.com link: a show plays, a profile opens
 sub openUrl {
-	my ($client, $cb, $args) = @_;
+	my ($client, $cb, $args, $pass) = @_;
+	my $menu = $pass && $pass->{menu};
 
 	my $input = $args->{search} || '';
 	$input =~ s{^\s+|\s+$}{}g;
@@ -601,7 +653,7 @@ sub openUrl {
 					name  => $live->{owner},
 					type  => 'link',
 					url   => \&userMenu,
-					passthrough => [{ user => $live->{user}, name => $live->{owner}, image => $live->{image} }],
+					passthrough => [{ user => $live->{user}, name => $live->{owner}, image => $live->{image}, menu => $menu }],
 					image => $live->{image} || icon(),
 				},
 			] });
@@ -620,7 +672,7 @@ sub openUrl {
 		return Plugins::MixcloudDirect::API->get('/' . uri_escape_utf8($user) . '/', sub {
 			my $data = shift;
 			return _error($client, $cb, 'PLUGIN_MIXCLOUDDIRECT_NOT_FOUND') unless $data && $data->{username};
-			userMenu($client, $cb, $args, { user => $data->{username}, name => $data->{name}, image => pictureUrl($data->{pictures}) });
+			userMenu($client, $cb, $args, { user => $data->{username}, name => $data->{name}, image => pictureUrl($data->{pictures}), menu => $menu });
 		});
 	}
 
