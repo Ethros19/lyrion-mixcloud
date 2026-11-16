@@ -8,10 +8,12 @@ use strict;
 use utf8;
 
 use Exporter qw(import);
+use Encode qw(encode decode FB_CROAK);
 use MIME::Base64 qw(decode_base64);
+use URI::Escape qw(uri_unescape);
 
 our @EXPORT_OK = qw(
-	decodeStreamUrl parseKey cloudcastUrl parseLiveKey liveUrl
+	decodeStreamUrl decodePathComponent parseKey cloudcastUrl parseLiveKey liveUrl
 	parseMasterPlaylist parseMediaPlaylist pickVariant segmentAt
 	audioRendition parseLivePlaylist
 	tsToAdts adtsInfo adtsSkip
@@ -38,7 +40,12 @@ sub decodeStreamUrl {
 	return $out =~ m{^https?://} ? $out : undef;
 }
 
-# "/user/slug/" or "https://www.mixcloud.com/user/slug/" -> (user, slug)
+# Decode once, via bytes so raw Unicode and escaped UTF-8 can coexist.
+sub decodePathComponent {
+	return decode('UTF-8', uri_unescape(encode('UTF-8', shift)), FB_CROAK);
+}
+
+# "/user/slug/" or "https://www.mixcloud.com/user/slug/" -> (user, slug), still URL-encoded
 sub parseKey {
 	my $key = shift || return;
 	$key =~ s{^https?://(?:www\.|m\.|beta\.)?mixcloud\.com}{}i;

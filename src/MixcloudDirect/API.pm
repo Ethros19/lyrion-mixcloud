@@ -21,7 +21,7 @@ use Slim::Networking::SimpleAsyncHTTP;
 use Slim::Utils::Cache;
 use Slim::Utils::Log;
 
-use Plugins::MixcloudDirect::Util qw(decodeStreamUrl parseKey pictureUrl);
+use Plugins::MixcloudDirect::Util qw(decodeStreamUrl decodePathComponent parseKey pictureUrl);
 
 use constant REST    => 'https://api.mixcloud.com';
 use constant GRAPHQL => 'https://app.mixcloud.com/graphql';
@@ -160,7 +160,13 @@ sub getShow {
 	my ($class, $user, $slug, $cb) = @_;
 
 	my $json = JSON::XS->new->allow_nonref;
-	my $query = sprintf(SHOW_QUERY, $json->encode($user), $json->encode($slug));
+	# GraphQL takes text, not REST's URL-encoded path components. Keep the
+	# original components for playback URLs and metadata/favourite cache keys.
+	my $query = eval { sprintf(SHOW_QUERY, map { $json->encode(decodePathComponent($_)) } ($user, $slug)) };
+	if ($@) {
+		$log->warn("Invalid show key $user/$slug: $@");
+		return $cb->(undef, 'PLUGIN_MIXCLOUDDIRECT_NOT_FOUND');
+	}
 	my $url = GRAPHQL . '?query=' . uri_escape_utf8($query);
 
 	_fetch($url, sub {
