@@ -5,7 +5,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 
 use Plugins::MixcloudDirect::Util qw(
-	decodeStreamUrl parseKey cloudcastUrl
+	decodeStreamUrl decodePathComponent parseKey cloudcastUrl
 	parseMasterPlaylist parseMediaPlaylist pickVariant segmentAt
 	tsToAdts adtsInfo adtsSkip
 	formatDuration pictureUrl trackAt
@@ -34,6 +34,36 @@ is_deeply([ parseKey('https://m.mixcloud.com/dholbach/cryptkeeper') ], [qw(dholb
 is_deeply([ parseKey('/dholbach/') ], [], 'user only');
 is_deeply([ parseKey('/dholbach/favorites/') ], [], 'user subpage');
 is(cloudcastUrl('a', 'b'), 'mcdirect://a/b', 'cloudcastUrl');
+
+# REST keys and pasted links stay encoded until the GraphQL lookup boundary.
+{
+	my @slugs = (
+		[
+			'10426-cello-octets-from-arvo-p%C3%A4rt-saariaho-beving-villa-lobos-rachmaninoff-more',
+			"10426-cello-octets-from-arvo-p\x{e4}rt-saariaho-beving-villa-lobos-rachmaninoff-more",
+		],
+		[
+			'82326-france-pt-8-w-luc-ferrari-alain-bancquart-g%C3%A9rard-grisey-micha%C3%ABl-levinas-more',
+			"82326-france-pt-8-w-luc-ferrari-alain-bancquart-g\x{e9}rard-grisey-micha\x{eb}l-levinas-more",
+		],
+	);
+	for my $case (@slugs) {
+		my ($encoded, $unicode) = @$case;
+		my ($user, $slug) = parseKey("/deafmix3/$encoded/");
+		is(decodePathComponent($slug), $unicode, 'REST slug decoded for lookup');
+		is(cloudcastUrl($user, $slug), "mcdirect://deafmix3/$encoded", 'playback URL retains encoded slug');
+		my (undef, $pasted) = parseKey("https://www.mixcloud.com/deafmix3/$encoded/?utm=x");
+		is(decodePathComponent($pasted), $unicode, 'pasted show link decoded for lookup');
+		is(decodePathComponent($unicode), $unicode, 'raw Unicode slug preserved');
+	}
+	is(decodePathComponent('cryptkeeper'), 'cryptkeeper', 'ASCII slug unchanged');
+	is(decodePathComponent("p\x{e4}rt-g%c3%a9rard"), "p\x{e4}rt-g\x{e9}rard", 'mixed Unicode and lowercase escapes');
+	is(decodePathComponent('show+100%25%20%26%2F%3F%23'), 'show+100% &/?#', 'path escaping is not form decoding');
+	is(decodePathComponent('literal-%25C3%25A4'), 'literal-%C3%A4', 'percent escapes decoded only once');
+	is(decodePathComponent('100%-live%zz'), '100%-live%zz', 'literal percent signs preserved');
+	eval { decodePathComponent('%FF') };
+	like($@, qr/UTF-8/, 'invalid UTF-8 rejected rather than silently replaced');
+}
 
 # HLS
 {

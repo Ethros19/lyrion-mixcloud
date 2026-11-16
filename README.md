@@ -92,6 +92,9 @@ and passing the AAC inside them to Lyrion, in plain Perl: MPEG-TS for shows, and
 fragmented-MP4 rendition for live streams (the video is never downloaded). That costs about 1 ms of CPU per
 10 s of audio, so it's comfortable on modest hardware.
 
+Mixcloud's REST show keys use percent-encoded UTF-8 for accented characters. The plugin
+decodes those path components for GraphQL lookups, while keeping playback and favourite URLs unchanged.
+
 ## Release
 
 Bump `<version>` in `src/MixcloudDirect/install.xml`, commit, then `./scripts/release.sh`.
